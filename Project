@@ -67,52 +67,7 @@ private class OpportunityProcessorTest {
       System.assertNotEquals('Negotiation', opp2.StageName);
     }
 }
-2.public class AccountActivationService {
-    
-    // Method to handle account activation and default contact creation
-    public static void activateAccount(Account acc, String activationSummary) {
-        if(acc.Type == 'Customer' && !acc.Active__c) {
-            acc.Active__c = true;
-            acc.Account_Activation_Summary__c = activationSummary;
-            insert acc;
-            
-            createDefaultContact(acc);
-        }
-    }
-    
-    // Method to create default contact for the account
-    private static void createDefaultContact(Account acc) {
-        Contact defaultContact = new Contact();
-        defaultContact.FirstName = acc.Name;
-        defaultContact.LastName = 'Customer Representative';
-        defaultContact.Email = acc.Company_Email__c;
-        defaultContact.Phone = acc.Phone;
-        defaultContact.AccountId = acc.Id;
-        insert defaultContact;
-    }
-    
-    // Method to make Account Activation Summary field required in UI
-    public static void makeActivationSummaryRequired() {
-        List<Layout> layouts = [SELECT Id FROM Layout WHERE SObjectType = 'Account'];
-        for(Layout layout : layouts) {
-            MetadataService.Layout metadataLayout = MetadataServiceUtil.retrieveLayout(layout.Id);
-            for(MetadataService.LayoutSection section : metadataLayout.sections) {
-                for(MetadataService.LayoutColumn column : section.columns) {
-                    for(MetadataService.LayoutItem item : column.layoutItems) {
-                        if(item.layoutComponents != null) {
-                            for(MetadataService.LayoutComponent component : item.layoutComponents) {
-                                if(component.type == 'Field' && component.field == 'Account.Account_Activation_Summary__c') {
-                                    component.required = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            MetadataServiceUtil.updateLayout(metadataLayout);
-        }
-    }
-}
+2.
 trigger AccountTrigger on Account (before insert, before update) {
     List<Contact> contactsToInsert = new List<Contact>();
 
@@ -150,85 +105,21 @@ trigger AccountTrigger on Account (before insert, before update) {
         }
     }
 }
-//test classes
 @isTest
-private class AccountActivationServiceTest {
-    
+private class AccountTriggerTest {
     @isTest
-    static void testActivateAccount_CustomerType() {
-        // Create test data
-        Account acc = new Account(Name = 'Test Account', Type = 'Customer');
+    static void testDefaultContactCreation() {
+        // Create a test account
+        Account acc = new Account(
+            Name = 'Test Account',
+            Type = 'Customer',
+            Active_c = true,
+            Company_Emailc = 'mailto:test@gmail.com',
+            Phone = '1234567890',
+            Account_Activation_Summary_c='Test Message'
+        );
         insert acc;
         
-        // Call the method to activate the account
-        AccountActivationService.activateAccount(acc, 'Activation summary');
-        
-        // Retrieve the updated account
-        acc = [SELECT Id, Active_c, Account_Activation_Summary_c FROM Account WHERE Id = :acc.Id];
-        
-        // Verify that the account is activated and activation summary is set
-        System.assertEquals(true, acc.Active__c);
-        System.assertEquals('Activation summary', acc.Account_Activation_Summary__c);
-        
-        // Verify that the default contact is created
-        Contact defaultContact = [SELECT Id FROM Contact WHERE AccountId = :acc.Id];
-        System.assertNotEquals(null, defaultContact);
     }
-    
-    @isTest
-    static void testActivateAccount_NonCustomerType() {
-        // Create test data
-        Account acc = new Account(Name = 'Test Account', Type = 'Partner');
-        insert acc;
-        
-        // Call the method to activate the account
-        AccountActivationService.activateAccount(acc, 'Activation summary');
-        
-        // Retrieve the updated account
-        acc = [SELECT Id, Active_c, Account_Activation_Summary_c FROM Account WHERE Id = :acc.Id];
-        
-        // Verify that the account is not activated and activation summary is not set
-        System.assertEquals(false, acc.Active__c);
-        System.assertEquals(null, acc.Account_Activation_Summary__c);
-        
-        // Verify that no default contact is created
-        List<Contact> defaultContacts = [SELECT Id FROM Contact WHERE AccountId = :acc.Id];
-        System.assertEquals(0, defaultContacts.size());
-    }
-    
-    @isTest
-    static void testMakeActivationSummaryRequired() {
-        // Create test layout
-        MetadataService.Layout testLayout = new MetadataService.Layout();
-        testLayout.fullName = 'Account-TestLayout';
-        MetadataService.LayoutSection testSection = new MetadataService.LayoutSection();
-        testSection.columns = new List<MetadataService.LayoutColumn>{ new MetadataService.LayoutColumn() };
-        MetadataService.LayoutItem testItem = new MetadataService.LayoutItem();
-        testItem.layoutComponents = new List<MetadataService.LayoutComponent>{ new MetadataService.LayoutComponent() };
-        testItem.layoutComponents[0].type = 'Field';
-        testItem.layoutComponents[0].field = 'Account.Account_Activation_Summary__c';
-        testSection.layoutRows = new List<MetadataService.LayoutRow>{ new MetadataService.LayoutRow() };
-        testSection.layoutRows[0].layoutItems = new List<MetadataService.LayoutItem>{ testItem };
-        testLayout.sections = new List<MetadataService.LayoutSection>{ testSection };
-        MetadataServiceUtil.createLayout(testLayout);
-        
-        // Call the method to make activation summary required
-        AccountActivationService.makeActivationSummaryRequired();
-        
-        // Retrieve the updated layout
-        MetadataService.Layout updatedLayout = MetadataServiceUtil.retrieveLayout('Account-TestLayout');
-        
-        // Verify that the activation summary field is required in the layout
-        for(MetadataService.LayoutSection section : updatedLayout.sections) {
-            for(MetadataService.LayoutColumn column : section.columns) {
-                for(MetadataService.LayoutItem item : column.layoutItems) {
-                    for(MetadataService.LayoutComponent component : item.layoutComponents) {
-                        if(component.field == 'Account.Account_Activation_Summary__c') {
-                            System.assertEquals(true, component.required);
-                        }
-                    }
-                }
-            }
-        }
-    }
+
 }
